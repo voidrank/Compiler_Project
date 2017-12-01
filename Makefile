@@ -4,7 +4,8 @@ YACC = @bison
 MKDIR_P = mkdir -p
 BUILD_DIR = build
 BIN_DIR = build/bin
-MAINCC = build/main.cc
+MAINCC = src/main.cc
+LEXCC = build/main.cc
 TABCC = build/main.tab.cc
 TABH = build/main.tab.h
 MAINY = src/main.y
@@ -12,10 +13,10 @@ MAINL = src/main.l
 TESTCASE=test.pcat
 TESTDIR=tests/
 MAINBIN = build/bin/main
-CFLAG = -I "src"
+CFLAG = -I "src" -I "build"
 
-main: clean $(BUILD_DIR) $(BIN_DIR) $(MAINCC) $(TABCC)
-	$(GCC) $(TABCC) $(MAINCC) -lfl -o $(MAINBIN) $(CFLAG)
+main: clean $(BUILD_DIR) $(BIN_DIR) $(LEXCC) $(MAINCC) $(TABCC)
+	$(GCC) $(TABCC) $(LEXCC) $(MAINCC) -lfl -o $(MAINBIN) $(CFLAG)
 
 $(BUILD_DIR): 
 	$(MKDIR_P) $(BUILD_DIR)
@@ -23,8 +24,8 @@ $(BUILD_DIR):
 $(BIN_DIR):
 	$(MKDIR_P) $(BIN_DIR)
 
-$(MAINCC): 
-	$(LEX) -o $(MAINCC) $(MAINL)
+$(LEXCC): 
+	$(LEX) -o $(LEXCC) $(MAINL)
 
 $(TABCC):
 	$(YACC) --defines=$(TABH) --output=$(TABCC) $(MAINY)

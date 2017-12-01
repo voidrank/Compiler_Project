@@ -1,14 +1,10 @@
 %{
-#include <iostream>
-#include <cstdio>
 #include "main.h"
-using namespace std;
-extern "C" int yylex();
-extern "C" int yyparse();
-extern "C" FILE *yyin;
-
-void yyerror(const char *s);
+#define YYERROR_VERBOSE 1
 %}
+
+%defines
+%locations
 
 %union {
     int ival; // INT
@@ -37,6 +33,8 @@ void yyerror(const char *s);
 %token <sval> COLON SEMICOLON COMMA STOP LP RP LSB RSB LB RB LA RA BACKSLASH
 
 %token <sval> ID
+
+%start program
 
 %%
 program: PROGRAM IS body SEMICOLON {cout << "program" << endl;}
@@ -185,26 +183,8 @@ binaryOP: PLUS {cout << "PLUS" << endl;}
 
 %%
 
-int main(int, char** args) {
-
-char* file_name = args[1];
-    // open a file handle to a particular file:
-    FILE *myfile = fopen(file_name, "r");
-    // make sure it's valid:
-    if (!myfile) {
-        cout << "I can't open file!" << endl;
-        return -1;
-    }
-    // set lex to read from it instead of defaulting to STDIN:
-    yyin = myfile;
-    // parse through the input until there is no more:
-	do {
-		yyparse();
-	} while (!feof(yyin));
-}
-
 void yyerror(const char *s) {
-    cout << "EEK, parse error!  Message: " << s << endl;
+    PrintError(s);
     // might as well halt now:
     exit(-1);
 }

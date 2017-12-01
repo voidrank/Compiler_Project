@@ -1,13 +1,11 @@
 %{
-#include <iostream>
-#include <cstdio>
 #include "main.h"
-#include "main.tab.h"
-using namespace std;
-#define YY_DECL extern "C" int yylex()
 
-int ln = 1, col = 1;
-const int tab_width = 8;
+#define YY_INPUT(buf,result,max_size)  {\
+    result = GetNextChar(buf, max_size); \
+    if (  result <= 0  ) \
+      result = YY_NULL; \
+    }
 
 %}
 
@@ -19,9 +17,11 @@ delimiter	:|;|,|\.|\(|\)|\[|\]|\{|\}|\[<|>\]|\\
 
 %%
 [ \t\r\n]+  {
+    BeginToken(yytext);
     /* eat up whitespace */
 }
 {keyword} {
+    BeginToken(yytext);
     yylval.sval = yytext;
     if (strcmp(yytext, "AND") == 0) return AND;
     if (strcmp(yytext, "ARRAY") == 0) return ARRAY;
@@ -53,85 +53,91 @@ delimiter	:|;|,|\.|\(|\)|\[|\]|\{|\}|\[<|>\]|\\
     if (strcmp(yytext, "WRITE") == 0) return WRITE;
 }
 {digit}+ {
-  if (check_integer(yytext) == INT_OVERFLOW)
-    cout << "INT INT_OVERFLOW";
-  yylval.ival = atoi(yytext);
-  return INTEGER;
+    BeginToken(yytext);
+    if (check_integer(yytext) == INT_OVERFLOW)
+        cout << "INT INT_OVERFLOW";
+    yylval.ival = atoi(yytext);
+    return INTEGER;
 }
 {digit}+\.{digit}* {
-  yylval.fval = atof(yytext);
-  return REAL;
+    BeginToken(yytext);
+    yylval.fval = atof(yytext);
+    return REAL;
 }
 \"[^\"]*\" {
-  int err = check_string(yytext);
-  if (err == STR_OVER_LONG)
-    cout << "STRING OVER LONG";
-  else if (err == UNEXPECTED_WORD)
-    cout << "UNEXPECTED WORD";
-  yylval.sval = yytext;
-  return STRING;
+    BeginToken(yytext);
+    int err = check_string(yytext);
+    if (err == STR_OVER_LONG)
+        cout << "STRING OVER LONG";
+    else if (err == UNEXPECTED_WORD)
+        cout << "UNEXPECTED WORD";
+    yylval.sval = yytext;
+    return STRING;
 }
 {operator} {
-  if (strcmp(yytext, ":=") == 0) return ASSIGN;
-  if (strcmp(yytext, "+") == 0) return PLUS;
-  if (strcmp(yytext, "-") == 0) return MINUS;
-  if (strcmp(yytext, "*") == 0) return ASTERISK;
-  if (strcmp(yytext, "/") == 0) return SLASH;
-  if (strcmp(yytext, "<") == 0) return LT;
-  if (strcmp(yytext, "<=") == 0) return LE;
-  if (strcmp(yytext, ">") == 0) return GT;
-  if (strcmp(yytext, ">=") == 0) return GE;
-  if (strcmp(yytext, "=") == 0) return EQ;
-  if (strcmp(yytext, "<>") == 0) return NE;
-  if (strcmp(yytext, "DIV") == 0) return DIV;
+    BeginToken(yytext);
+    if (strcmp(yytext, ":=") == 0) return ASSIGN;
+    if (strcmp(yytext, "+") == 0) return PLUS;
+    if (strcmp(yytext, "-") == 0) return MINUS;
+    if (strcmp(yytext, "*") == 0) return ASTERISK;
+    if (strcmp(yytext, "/") == 0) return SLASH;
+    if (strcmp(yytext, "<") == 0) return LT;
+    if (strcmp(yytext, "<=") == 0) return LE;
+    if (strcmp(yytext, ">") == 0) return GT;
+    if (strcmp(yytext, ">=") == 0) return GE;
+    if (strcmp(yytext, "=") == 0) return EQ;
+    if (strcmp(yytext, "<>") == 0) return NE;
+    if (strcmp(yytext, "DIV") == 0) return DIV;
 }
 {delimiter} {
-  if (strcmp(yytext, ":") == 0) return COLON;
-  if (strcmp(yytext, ";") == 0) return SEMICOLON;
-  if (strcmp(yytext, ",") == 0) return COMMA;
-  if (strcmp(yytext, ".") == 0) return STOP;
-  if (strcmp(yytext, "(") == 0) return LP;
-  if (strcmp(yytext, ")") == 0) return RP;
-  if (strcmp(yytext, "[") == 0) return LSB;
-  if (strcmp(yytext, "]") == 0) return RSB;
-  if (strcmp(yytext, "{") == 0) return LB;
-  if (strcmp(yytext, "}") == 0) return RB;
-  if (strcmp(yytext, "[<") == 0) return LA;
-  if (strcmp(yytext, ">]") == 0) return RA;
-  if (strcmp(yytext, "\\") == 0) return BACKSLASH;
+    BeginToken(yytext);
+    if (strcmp(yytext, ":") == 0) return COLON;
+    if (strcmp(yytext, ";") == 0) return SEMICOLON;
+    if (strcmp(yytext, ",") == 0) return COMMA;
+    if (strcmp(yytext, ".") == 0) return STOP;
+    if (strcmp(yytext, "(") == 0) return LP;
+    if (strcmp(yytext, ")") == 0) return RP;
+    if (strcmp(yytext, "[") == 0) return LSB;
+    if (strcmp(yytext, "]") == 0) return RSB;
+    if (strcmp(yytext, "{") == 0) return LB;
+    if (strcmp(yytext, "}") == 0) return RB;
+    if (strcmp(yytext, "[<") == 0) return LA;
+    if (strcmp(yytext, ">]") == 0) return RA;
+    if (strcmp(yytext, "\\") == 0) return BACKSLASH;
 }
 {letter}({letter}|{digit})* {
+    BeginToken(yytext);
     yylval.sval = yytext;
     return ID;
 }
 \(*.*\*\) {
-    yylval.sval = yytext;
+    BeginToken(yytext);
     cerr << "Ignore Comment:" << yytext << endl;
 }
 
 %%
 
 int check_string(char *str) {
-  if (strlen(str) > 255)
-    return STR_OVER_LONG;
-  else {
-    for (int i = 0; i < strlen(str); ++i)
-      if (str[i] < 32)
-        return UNEXPECTED_WORD;
-    return 0;
-  }
+    if (strlen(str) > 255)
+        return STR_OVER_LONG;
+    else {
+        for (int i = 0; i < strlen(str); ++i)
+            if (str[i] < 32)
+                return UNEXPECTED_WORD;
+        return 0;
+    }
 }
 
 
 int check_integer(char* int_str) {
-  if (strlen(int_str) > strlen(MAX_INT))
-    return INT_OVERFLOW;
-  else if (strlen(int_str) == strlen(MAX_INT)) {
-    for (int i = 0; i < strlen(int_str); ++i)
-      if (int_str[i] > MAX_INT[i])
+    if (strlen(int_str) > strlen(MAX_INT))
         return INT_OVERFLOW;
-      else if (int_str[i] < MAX_INT[i])
-        return 0;
-  }
-  return 0;
+    else if (strlen(int_str) == strlen(MAX_INT)) {
+        for (int i = 0; i < strlen(int_str); ++i)
+            if (int_str[i] > MAX_INT[i])
+                return INT_OVERFLOW;
+            else if (int_str[i] < MAX_INT[i])
+                return 0;
+    }
+    return 0;
 }

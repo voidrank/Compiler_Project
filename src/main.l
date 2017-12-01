@@ -11,20 +11,22 @@ const int tab_width = 8;
 
 %}
 
-keyword	AND|ELSIF|LOOP|PROGRAM|VAR|ARRAY|END|MOD|READ|WHILE|BEGIN|EXIT|NOT|RECORD|WRITE|BY|FOR|OF|RETURN|DIV|IF|OR|THEN|DO|IN|OUT|TO|ELSE|IS|PROCEDURE|TYPE
+keyword	AND|ELSIF|LOOP|PROGRAM|VAR|ARRAY|END|MOD|READ|WHILE|BEGIN|EXIT|NOT|RECORD|WRITE|BY|FOR|OF|RETURN|IF|OR|THEN|DO|IN|OUT|TO|ELSE|IS|PROCEDURE|TYPE
 letter	[A-Za-z]
 digit	[0-9]
-operator	:=|\+|\-|\*|\/|<|<=|>|>=|=|<>
+operator	:=|\+|\-|\*|\/|<|<=|>|>=|=|<>|DIV
 delimiter	:|;|,|\.|\(|\)|\[|\]|\{|\}|\[<|>\]|\\
 
 %%
+[ \t\r\n]+  {
+    /* eat up whitespace */
+}
 {keyword} {
     yylval.sval = yytext;
     if (strcmp(yytext, "AND") == 0) return AND;
     if (strcmp(yytext, "ARRAY") == 0) return ARRAY;
     if (strcmp(yytext, "BEGIN") == 0) return BeGiN;
     if (strcmp(yytext, "BY") == 0) return BY;
-    if (strcmp(yytext, "DIV") == 0) return DIV;
     if (strcmp(yytext, "DO") == 0) return DO;
     if (strcmp(yytext, "ELSE") == 0) return ELSE;
     if (strcmp(yytext, "ELSIF") == 0) return ELSIF;
@@ -70,7 +72,6 @@ delimiter	:|;|,|\.|\(|\)|\[|\]|\{|\}|\[<|>\]|\\
   return STRING;
 }
 {operator} {
-  yylval.sval = yytext;
   if (strcmp(yytext, ":=") == 0) return ASSIGN;
   if (strcmp(yytext, "+") == 0) return PLUS;
   if (strcmp(yytext, "-") == 0) return MINUS;
@@ -82,6 +83,7 @@ delimiter	:|;|,|\.|\(|\)|\[|\]|\{|\}|\[<|>\]|\\
   if (strcmp(yytext, ">=") == 0) return GE;
   if (strcmp(yytext, "=") == 0) return EQ;
   if (strcmp(yytext, "<>") == 0) return NE;
+  if (strcmp(yytext, "DIV") == 0) return DIV;
 }
 {delimiter} {
   if (strcmp(yytext, ":") == 0) return COLON;

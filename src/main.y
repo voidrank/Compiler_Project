@@ -3,127 +3,202 @@
 #include <cstdio>
 #include "main.h"
 using namespace std;
-#define YY_DECL extern "C" int yylex()
+extern "C" int yylex();
+extern "C" int yyparse();
+extern "C" FILE *yyin;
 
-int ln = 1, col = 1;
-const int tab_width = 8;
-
+void yyerror(const char *s);
 %}
 
-types	INTEGER|REAL|STRING
-keyword	AND|ELSIF|LOOP|PROGRAM|VAR|ARRAY|END|MOD|READ|WHILE|BEGIN|EXIT|NOT|RECORD|WRITE|BY|FOR|OF|RETURN|DIV|IF|OR|THEN|DO|IN|OUT|TO|ELSE|IS|PROCEDURE|TYPE
-letter	[A-Za-z]
-digit	[0-9]
-operator	:=|\+|\-|\*|\/|<|<=|>|>=|=|<>
-delimiter	:|;|,|\.|\(|\)|\[|\]|\{|\}|\[<|>\]|\\
+%union {
+    int ival; // INT
+    float fval; // FLOAT
+    char *sval; // STRING
+}
+
+/*type*/
+%token <ival> INTEGER
+%token <fval> REAL
+%token <sval> STRING
+
+/*keyword*/
+%token <sval> AND ARRAY BeGiN BY DIV DO ELSE ELSIF END EXIT FOR IF IS LOOP MOD NOT OF OR PROCEDURE PROGRAM READ RECORD RETURN THEN TO TYPE VAR WHILE WRITE
+
+/*operator*/
+%token <sval> ASSIGN PLUS MINUS ASTERISK SLASH LT LE GT GE EQ NE
+
+/*delimiter*/
+%token <sval> COLON SEMICOLON COMMA STOP LP RP LSB RSB LB RB LA RA BACKSLASH
+
+%token <sval> ID
 
 %%
-\(\*.*\*\) {
-	col += strlen(yytext);
-}
-[ ] {
-	col += 1;
-}
-[\t] {
-	col = ((col - 1) / tab_width + 1)  * tab_width + 1;
-}
-[\n] {
-	col = 1;
-	ln += 1;
-}
-{types} {
-	cout << "Line " << ln << ", Colomn " << col;
-	cout << ": TYPE " << yytext << endl;
-	col += strlen(yytext);
-}
-{keyword} {
-	cout << "Line " << ln << ", Colomn " << col;
-	cout << ": KEYWORD " << yytext << endl;
-	col += strlen(yytext);
-}
-{digit}+ {
-	cout << "Line " << ln << ", Colomn " << col;
-	cout << ": INT " << yytext;
-  if (check_integer(yytext) == INT_OVERFLOW)
-    cout << "INT INT_OVERFLOW";
-  cout << endl;
-	col += strlen(yytext);
-}
-{digit}+\.{digit}* {
-	cout << "Line " << ln << ", Colomn " << col;
-	cout << ": REAL " << yytext << endl;
-	col += strlen(yytext);
-}
-\"[^\"]*\" {
-	cout << "Line " << ln << ", Colomn " << col;
-	cout << ": STRING " << yytext;
-  int err = check_string(yytext);
-  if (err == STR_OVER_LONG)
-    cout << "STRING OVER LONG";
-  else if (err == UNEXPECTED_WORD)
-    cout << "UNEXPECTED WORD";
-  cout << endl;
-	col += strlen(yytext);
-}
-{operator} {
-	cout << "Line " << ln << ", Colomn " << col;
-	cout << ": OPERATOR " << yytext << endl;
-	col += strlen(yytext);
-}
-{delimiter} {
-	cout << "Line " << ln << ", Colomn " << col;
-	cout << ": DELIMITER " << yytext << endl;
-	col += strlen(yytext);
-}
-{letter}({letter}|{digit})* {
-	cout << "Line " << ln << ", Colomn " << col;
-	cout << ": IDENTIFIER " << yytext << endl;
-	col += strlen(yytext);
-}
+program: PROGRAM IS body SEMICOLON {cout << "program" << endl;}
+       ;
+body: declarartions BeGiN statements END {cout << "body" << endl;}
+    ;
+declarartions: declarartions declarartion {cout << "declarartions" << endl;}
+             | {cout << "void declarartions" << endl;}
+             ;
+declarartion: TYPE typeDecls {cout << "type-declaration" << endl;}
+            | VAR varDecls {cout << "var-declaration" << endl;}
+            | PROCEDURE procedureDecls {cout << "procedure-declaration" << endl;}
+            ;
+varDecls: varDecls varDecl {cout << "var-decls" << endl;}
+        | {cout << "void var-decls" << endl;}
+        ;
+typeDecls: typeDecls typeDecl {cout << "type-decls" << endl;}
+         | {cout << "void type-decls" << endl;}
+         ;
+procedureDecls: procedureDecls procedureDecl {cout << "procedureDecls" << endl;}
+              | {cout << "void procedureDecls" << endl;}
+              ;
+varDecl: IDs maybeType ASSIGN expression SEMICOLON {cout << "var-decl" << endl;}
+       ;
+typeDecl: ID IS type SEMICOLON {cout << "type-decl" << endl;}
+        ;
+procedureDecl: ID formalParams maybeType IS body SEMICOLON {cout << "procedure-decl" << endl;}
+             ;
+IDs: IDs COMMA ID {cout << "IDs" << endl;}
+   | ID {cout << "first ID" << endl;}
+   ;
+maybeType: COLON type {cout << "Just type" << endl;}
+         | {cout << "Nothing :: Maybe Type" << endl;}
+         ;
+type: ARRAY OF type {cout << "array of type" << endl;}
+    | RECORD components END {cout << "recoard" << endl;}
+    | ID {cout << "ID" << endl;}
+    ;
+components: components component {cout << "components" << endl;}
+          | component {cout << "first component" << endl;}
+          ;
+component: ID COLON type SEMICOLON {cout << "component" << endl;}
+         ;
+formalParams: LP fpSections RP {cout << "formalParams" << endl;}
+            | LP RP {cout << "empty formalParams" << endl;}
+            ;
+fpSections: fpSections SEMICOLON fpSection {cout << "fp-sections" << endl;}
+          | fpSection {cout << "first fp-section" << endl;}
+          ;
+fpSection: IDs COLON type {cout << "fp-section" << endl;}
+         ;
+statement: lvalue ASSIGN expression SEMICOLON {cout << "assign statement" << endl;}
+         | ID actualParams SEMICOLON {cout << "actual-params statement" << endl;}
+         | READ LP lvalues RP SEMICOLON {cout << "read statement" << endl;}
+         | WRITE writeParams SEMICOLON {cout << "write statement" << endl;}
+         | IF expression THEN statements ELSIFs maybeELSE END SEMICOLON {cout << "if statement" << endl;}
+         | WHILE expression DO statements END SEMICOLON {cout << "while statement" << endl;}
+         | LOOP statements END SEMICOLON {cout << "loop statement" << endl;}
+         | FOR ID ASSIGN expression TO expression maybeByExpression DO statements END SEMICOLON {cout << "for statement" << endl;}
+         | EXIT SEMICOLON {cout << "exit statement" << endl;}
+         | RETURN maybeExpression SEMICOLON {cout << "return statement" << endl;}
+         ;
+lvalues: lvalues COMMA lvalue {cout << "l-values" << endl;}
+      | lvalue {cout << "first l-value" << endl;}
+      ;
+ELSIFs: ELSIFs ELSIF expression THEN statements {cout << "ELSIFs" << endl;}
+      | {cout << "void ELSIFs" << endl;}
+      ;
+maybeELSE: ELSE statements {cout << "Just ELSE statement" << endl;}
+         | {cout << "Nothing :: Maybe ELSE statement" << endl;}
+         ;
+statements: statements statement {cout << "statements" << endl;}
+          | {cout << "void statement" << endl;}
+          ;
+maybeByExpression: BY expression {cout << "Just BY expression" << endl;}
+                 | {cout << "Nothing :: Maybe BY expression" << endl;}
+                 ;
+maybeExpression: expression {cout << "Just expression" << endl;}
+               | {cout << "Nothing :: Maybe expression" << endl;}
+               ;
+writeParams: LP writeExprs RP {cout << "write-params" << endl;}
+           | LP RP {cout << "empty write-params" << endl;}
+           ;
+writeExpr: STRING {cout << "STRING write-expr" << endl;}
+         | expression {cout << "expression write-expr" << endl;}
+         ;
+writeExprs: writeExprs COMMA writeExpr {cout << "write-exprs" << endl;}
+          | writeExpr {cout << "first write-exprs" << endl;}
+          ;
+expression: number {cout << "number expression" << endl;}
+          | lvalue {cout << "l-value expression" << endl;}
+          | LP expression RP {cout << "(expression)" << endl;}
+          | unaryOP expression {cout << "unaryOP expression" << endl;}
+          | expression binaryOP expression {cout << "expression binaryOP expression" << endl;}
+          | ID actualParams {cout << "ID actual-params expression" << endl;}
+          | ID compValues {cout << "ID comp-values expression" << endl;}
+          | ID arrayValues {cout << "ID array-values expression" << endl;}
+          ;
+lvalue: ID {cout << "ID l-value" << endl;}
+      | lvalue LSB expression RSB {cout << "[expression] l-value" << endl;}
+      | lvalue STOP ID {cout << "lvalue . ID lvalue" << endl;}
+      ;
+actualParams: LP expressions RP {cout << "actual-params" << endl;}
+            | LP RP {cout << "empty actual-params" << endl;}
+            ;
+expressions: expressions COMMA expression {cout << "expressions" << endl;}
+           | expression {cout << "first expression" << endl;}
+           ;
+compValues: LB assignIDs RB {cout << "comp-values" << endl;}
+          ;
+assignIDs: assignIDs SEMICOLON assignID {cout << "assignIDs" << endl;}
+         | assignID {cout << "first assignID" << endl;}
+         ;
+assignID: ID ASSIGN expression {cout << "assignID" << endl;}
+        ;
+arrayValues: LA arrayValuess RA {cout << "array-values" << endl;}
+           ;
+arrayValuess: arrayValuess COMMA arrayvalue {cout << "array-valuess" << endl;}
+            | arrayvalue {cout << "first array-value" << endl;}
+            ;
+arrayvalue: expression OF expression {cout << "expressions" << endl;}
+          | expression {cout << "first expression" << endl;}
+          ;
+number: INTEGER {cout << "INTEGER" << endl;}
+      | REAL {cout << "REAL" << endl;}
+      ;
+unaryOP: PLUS {cout << "PLUS" << endl;}
+       | MINUS {cout << "MINUS" << endl;}
+       | NOT {cout << "NOT" << endl;}
+       ;
+binaryOP: PLUS {cout << "PLUS" << endl;}
+        | MINUS {cout << "MINUS" << endl;}
+        | ASTERISK {cout << "ASTERISK" << endl;}
+        | SLASH {cout << "SLASH" << endl;}
+        | DIV {cout << "DIV" << endl;}
+        | MOD {cout << "MOD" << endl;}
+        | OR {cout << "OR" << endl;}
+        | AND {cout << "AND" << endl;}
+        | GT {cout << "GT" << endl;}
+        | LT {cout << "LT" << endl;}
+        | EQ {cout << "EQ" << endl;}
+        | GE {cout << "GE" << endl;}
+        | LE {cout << "LE" << endl;}
+        | NE {cout << "NE" << endl;}
+        ;
 
 %%
-
-int check_string(char *str) {
-  if (strlen(str) > 255)
-    return STR_OVER_LONG;
-  else {
-    for (int i = 0; i < strlen(str); ++i)
-      if (str[i] < 32)
-        return UNEXPECTED_WORD;
-    return 0;
-  }
-}
-
-
-int check_integer(char* int_str) {
-  if (strlen(int_str) > strlen(MAX_INT))
-    return INT_OVERFLOW;
-  else if (strlen(int_str) == strlen(MAX_INT)) {
-    for (int i = 0; i < strlen(int_str); ++i)
-      if (int_str[i] > MAX_INT[i])
-        return INT_OVERFLOW;
-      else if (int_str[i] < MAX_INT[i])
-        return 0;
-  }
-  return 0;
-}
-
 
 int main(int, char** args) {
 
-  char* file_name = args[1];
-  //printf("%s", file_name);
-	// open a file handle to a particular file:
-	FILE *myfile = fopen(file_name, "r");
-	// make sure it's valid:
-	if (!myfile) {
-		cout << "I can't open file!" << endl;
-		return -1;
-	}
-	// set lex to read from it instead of defaulting to STDIN:
-	yyin = myfile;
-	// lex through the input:
-	yylex();
+char* file_name = args[1];
+    // open a file handle to a particular file:
+    FILE *myfile = fopen(file_name, "r");
+    // make sure it's valid:
+    if (!myfile) {
+        cout << "I can't open file!" << endl;
+        return -1;
+    }
+    // set lex to read from it instead of defaulting to STDIN:
+    yyin = myfile;
+    // parse through the input until there is no more:
+	do {
+		yyparse();
+	} while (!feof(yyin));
 }
 
-
+void yyerror(const char *s) {
+    cout << "EEK, parse error!  Message: " << s << endl;
+    // might as well halt now:
+    exit(-1);
+}
